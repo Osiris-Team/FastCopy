@@ -19,35 +19,22 @@
  */
 package org.mhisoft.fc.ui;
 
+import java.awt.*;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.concurrent.atomic.AtomicReference;
 
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.JScrollBar;
-import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SpinnerModel;
-import javax.swing.SpinnerNumberModel;
+import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import dadb.Dadb;
 import org.mhisoft.fc.FastCopy;
 import org.mhisoft.fc.FileUtils;
 import org.mhisoft.fc.RunTimeProperties;
@@ -219,32 +206,55 @@ public class FastCopyMainForm {
 				if (lastSrourceFileLocation ==null)
 					lastSrourceFileLocation = new File(dir);
 
-				File[] files = chooseFiles(lastSrourceFileLocation
-						, VFSJFileChooser.SELECTION_MODE.FILES_AND_DIRECTORIES);
-
-				if (files != null && files.length > 0) {
-					StringBuilder builder = new StringBuilder();
-
-					//append to existing
-					if (fldSourceDir.getText() != null && fldSourceDir.getText().length() > 0) {
-						builder.append(fldSourceDir.getText()) ;
+				try{
+					Dadb discover = Dadb.discover();
+					if(discover == null); // Not found any device
+					List<Dadb> devices = Dadb.list();
+					JPopupMenu pop = new JPopupMenu();
+					pop.add("Detected Android device(s), do you wish to select one?");
+					AtomicReference<Dadb> selectedDevice = new AtomicReference<>();
+					for (Dadb d : devices) {
+						JButton btn = new JButton(d.toString());
+						pop.add(btn);
+						btn.addActionListener(e1 -> {
+							selectedDevice.set(d);
+							pop.setVisible(false);
+						});
 					}
+					JButton btnSkip = new JButton("Skip");
+					pop.add(btnSkip);
+					btnSkip.addActionListener(e12 -> {
+						pop.setVisible(false);
+						File[] files = chooseFiles(lastSrourceFileLocation
+								, VFSJFileChooser.SELECTION_MODE.FILES_AND_DIRECTORIES);
 
-					//now append the new directories. 
-					for (File file : files) {
-						if (builder.length() > 0)
-							builder.append(";");
-						builder.append(file.getAbsolutePath());
-						lastSrourceFileLocation =   file;
+						if (files != null && files.length > 0) {
+							StringBuilder builder = new StringBuilder();
 
-					}
+							//append to existing
+							if (fldSourceDir.getText() != null && fldSourceDir.getText().length() > 0) {
+								builder.append(fldSourceDir.getText()) ;
+							}
+
+							//now append the new directories.
+							for (File file : files) {
+								if (builder.length() > 0)
+									builder.append(";");
+								builder.append(file.getAbsolutePath());
+								lastSrourceFileLocation =   file;
+
+							}
 
 
-					props.setSourceDir(builder.toString());
-					fldSourceDir.setText(props.getSourceDir());
+							props.setSourceDir(builder.toString());
+							fldSourceDir.setText(props.getSourceDir());
+						}
+
+					});
+					pop.setVisible(true);
+				} catch (Exception ex) {
+					throw new RuntimeException(ex);
 				}
-
-
 			}
 		});
 
